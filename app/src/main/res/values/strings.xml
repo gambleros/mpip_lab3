@@ -1,0 +1,5 @@
+<resources>
+    <string name="app_name">Lab3</string>
+    <string name="settings">Settings</string>
+    <string name="setting_map_text">Enable Maps</string>
+</resources>
