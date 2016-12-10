@@ -2,13 +2,22 @@ package com.example.aleksandar.lab3;
 
 import android.content.Context;
 import android.location.Location;
+import android.preference.PreferenceManager;
 
 import com.example.aleksandar.lab3.Data.Maps;
 import com.example.aleksandar.lab3.Data.Result;
+import com.example.aleksandar.lab3.Model.DaoMaster;
+import com.example.aleksandar.lab3.Model.DaoSession;
+import com.example.aleksandar.lab3.Model.MapLocation;
+import com.example.aleksandar.lab3.Model.MapLocationDao;
+
+import org.greenrobot.greendao.database.Database;
 
 import java.util.ArrayList;
+import java.util.List;
 
 import static com.example.aleksandar.lab3.MainActivity.LIST_FRAGMENT;
+import static com.example.aleksandar.lab3.MainActivity.MAPS_FRAGMENT;
 
 /**
  * Created by Aleksandar on 06.12.2016.
@@ -16,18 +25,28 @@ import static com.example.aleksandar.lab3.MainActivity.LIST_FRAGMENT;
 
 public class MapLab {
     private static MapLab sMapLab;
-    private android.location.Location mLocation;
+
+    private Location mLocation;
     private String mActiveFragment;
-    private boolean mFlag;
-    private Maps mMaps;
+
+    private List<MapLocation> mMaps;
+    private MapLocationDao mMapLocationDao;
+    private DaoSession mDaoSession;
 
     private MapLab(Context context) {
         mActiveFragment = LIST_FRAGMENT;
-        mMaps = new Maps();
-        mMaps.results = new ArrayList<>();
-        Result r = new Result();
-        r.name = "tmp";
-        mMaps.results.add(r);
+
+//        mDaoSession = ((App) context.getApplicationContext()).getDaoSession();
+        mDaoSession = getDao(context);
+        mMapLocationDao = mDaoSession.getMapLocationDao();
+        mMaps = mMapLocationDao.queryBuilder().list();
+        mActiveFragment = SettingPreference.isMapOn(context) ? MAPS_FRAGMENT : LIST_FRAGMENT;
+    }
+
+    public static DaoSession getDao(Context context) {
+        DaoMaster.DevOpenHelper devOpenHelper = new DaoMaster.DevOpenHelper(context, "mapLocations-db");
+        Database db = devOpenHelper.getWritableDb();
+        return new DaoMaster(db).newSession();
     }
 
     public static MapLab get(Context context) {
@@ -53,19 +72,12 @@ public class MapLab {
         mActiveFragment = activeFragment;
     }
 
-    public Maps getMaps() {
+    public List<MapLocation> getMaps() {
         return mMaps;
     }
 
-    public void setMaps(Maps maps) {
+    public void setMaps(List<MapLocation> maps) {
         mMaps = maps;
     }
 
-    public boolean isFlag() {
-        return mFlag;
-    }
-
-    public void setFlag(boolean flag) {
-        mFlag = flag;
-    }
 }

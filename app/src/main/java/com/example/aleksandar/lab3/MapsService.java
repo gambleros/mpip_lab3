@@ -12,9 +12,10 @@ import android.util.Log;
 
 import com.example.aleksandar.lab3.Data.Maps;
 import com.example.aleksandar.lab3.Data.Result;
+import com.example.aleksandar.lab3.Model.DaoSession;
+import com.example.aleksandar.lab3.Model.MapLocation;
+import com.example.aleksandar.lab3.Model.MapLocationDao;
 import com.google.android.gms.common.api.GoogleApiClient;
-import com.google.android.gms.location.LocationListener;
-import com.google.android.gms.location.LocationRequest;
 import com.google.android.gms.location.LocationServices;
 import com.google.gson.Gson;
 
@@ -22,16 +23,18 @@ import com.google.gson.Gson;
  * Created by Aleksandar on 06.12.2016.
  */
 
-public class MapsService extends IntentService implements LocationListener{
-    private static final String TAG = "MapsService";
-    private Location mCurrentLocation;
-    private static GoogleApiClient mClient;
-//    private static Context mContext;
+public class MapsService extends IntentService {
 
-    private static final int INTERVAL = 1000 * 2;
+    private static final String TAG = "MapsService";
+
+    private static final int INTERVAL = 1000 * 60;
+
+    public static final String ACTION_NOTIFICATION =
+            "com.example.aleksandar.lab3.NOTIFY_DATA_CHANGE";
+    public static final String PREM_PRIVATE =
+            "com.example.aleksandar.lab3.PRIVATE";
 
     public static Intent newIntent(Context context) {
-//        mContext=context;
         return new Intent(context, MapsService.class);
     }
 
@@ -44,15 +47,9 @@ public class MapsService extends IntentService implements LocationListener{
         if (isOn) {
             alarmManager.setInexactRepeating(AlarmManager.ELAPSED_REALTIME,
                     SystemClock.elapsedRealtime(), INTERVAL, pi);
-            mClient=new GoogleApiClient.Builder(context)
-                    .addApi(LocationServices.API)
-                    .build();
-            mClient.connect();
-
         } else {
             alarmManager.cancel(pi);
             pi.cancel();
-            mClient.disconnect();
         }
     }
 
@@ -61,56 +58,66 @@ public class MapsService extends IntentService implements LocationListener{
         if (!isNetworkAvailableAndConnected()) {
             return;
         }
+        GoogleApiClient googleApiClient = null;
+        DaoSession daoSession = null;
         try {
-            findLocation();
-            //Log.i("Log",mCurrentLocation.toString());
+            googleApiClient = new GoogleApiClient.Builder(this)
+                    .addApi(LocationServices.API)
+                    .build();
+
+            googleApiClient.blockingConnect();
+
+            Location loc = LocationServices.FusedLocationApi
+                    .getLastLocation(googleApiClient);
+
             MapLab mL = MapLab.get(this);
-            if (mL.isFlag()) {
+            if (mL.getLocation() == null || mL.getLocation().distanceTo(loc) >= 2) {
 //                Log.i("Log", "Hello1");
-                stopSelf();
-                return;
+                mL.setLocation(loc);
             } else {
-                mCurrentLocation=mL.getLocation();
+//                Log.i("Log", "Hello2");
+                return;
             }
+
+//            daoSession=((App)getApplication()).getDaoSession();
+            daoSession = MapLab.getDao(this);
+
+            MapLocationDao mapLocationDao = daoSession.getMapLocationDao();
+            mapLocationDao.deleteAll();
+            //TODO replace location string
 //            String location = String.format("location=%.2f,%.2f", 41.99, 21.42);
-            String location = String.format("location=%.2f,%.2f", mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
+            String location = String.format("location=%.2f,%.2f", loc.getLatitude(), loc.getLongitude());
+
             String json = new Fetch()
                     .getUrlString("https://maps.googleapis.com/maps/api/place/nearbysearch/json?" + location + "&key=AIzaSyD1qNrBFoW5ZZzxDb6i0Mm5sr-cxYynbXI&radius=5000&types=restaurant");
+
             Gson gson = new Gson();
+
             Maps mMapsList = gson.fromJson(json, Maps.class);
-            //Todo fill db with values
-            mL.setMaps(mMapsList);
+
             for (Result r : mMapsList.results) {
                 Log.i("Log", r.name);
+                com.example.aleksandar.lab3.Data.Location dbloc = r.geometry.location;
+                MapLocation tmpLoc = new MapLocation(r.name, r.rating, r.vicinity, dbloc.lat, dbloc.lng);
+                mapLocationDao.insert(tmpLoc);
             }
 
+            mL.setMaps(mapLocationDao.queryBuilder().list());
+            sendBroadcast(new Intent(ACTION_NOTIFICATION),PREM_PRIVATE);
 
+        } catch (SecurityException e) {
+            Log.e(TAG, Log.getStackTraceString(e));
         } catch (Exception e) {
-
+            Log.e(TAG, Log.getStackTraceString(e));
+        } finally {
+            googleApiClient.disconnect();
         }
-        //Log.i("Log", "" + mL.getActiveFragment());
-    }
-
-    @Override
-    public void onCreate() {
-        super.onCreate();
-//        /Log.i("Log","Create");
-//        mClient=new GoogleApiClient.Builder(this)
-//                .addApi(LocationServices.API)
-//                .build();
     }
 
     @Override
     public void onStart(Intent intent, int startId) {
         super.onStart(intent, startId);
 
-    }
-
-    @Override
-    public void onDestroy() {
-//        super.onDestroy();
-//        Log.i("Log","Destroy");
-//        mClient.disconnect();
     }
 
     private boolean isNetworkAvailableAndConnected() {
@@ -121,41 +128,8 @@ public class MapsService extends IntentService implements LocationListener{
         return isNetworkConnected;
     }
 
-    private void findLocation() {
-
-        LocationRequest request = LocationRequest.create()
-                .setPriority(LocationRequest.PRIORITY_HIGH_ACCURACY)
-                .setNumUpdates(1)
-                .setInterval(0);
-        try {
-            LocationServices.FusedLocationApi
-                    .requestLocationUpdates(mClient, request,this);
-        } catch (SecurityException e) {
-            e.printStackTrace();
-        }
-    }
-
     public MapsService() {
         super(TAG);
     }
 
-
-    @Override
-    public void onLocationChanged(Location location) {
-        MapLab mapLab=MapLab.get(this);
-        Location tmp=mapLab.getLocation();
-        if(tmp==null){
-            mapLab.setLocation(location);
-        }
-        else if(tmp.distanceTo(location)<2){
-            mapLab.setFlag(true);
-            return;
-        }
-        else{
-            mapLab.setLocation(location);
-            mapLab.setFlag(false);
-        }
-
-
-    }
 }

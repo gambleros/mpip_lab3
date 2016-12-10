@@ -10,6 +10,9 @@ import android.view.View;
 import android.view.ViewGroup;
 
 import com.example.aleksandar.lab3.Data.Maps;
+import com.example.aleksandar.lab3.Model.MapLocation;
+
+import java.util.List;
 
 /**
  * Created by Aleksandar on 06.12.2016.
@@ -33,7 +36,7 @@ public class LocationListFragment extends Fragment {
 
     private void updateUI() {
         MapLab mapLab = MapLab.get(getActivity());
-        Maps maps = mapLab.getMaps();
+        List<MapLocation> maps = mapLab.getMaps();
 
         mLocationAdapter = new LocationAdapter(maps);
         mRecyclerView.setAdapter(mLocationAdapter);

@@ -3,8 +3,7 @@ package com.example.aleksandar.lab3;
 import android.location.Location;
 import android.os.Bundle;
 
-import com.example.aleksandar.lab3.Data.Maps;
-import com.example.aleksandar.lab3.Data.Result;
+import com.example.aleksandar.lab3.Model.MapLocation;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.LocationServices;
 import com.google.android.gms.maps.CameraUpdate;
@@ -17,6 +16,7 @@ import com.google.android.gms.maps.model.LatLng;
 import com.google.android.gms.maps.model.LatLngBounds;
 import com.google.android.gms.maps.model.MarkerOptions;
 
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -48,21 +48,23 @@ public class MapsFragment extends SupportMapFragment {
         if (mMap == null || mCurrentLocation == null) {
             return;
         }
-        Maps maps = mapLab.getMaps();
+        List<MapLocation> maps = mapLab.getMaps();
         LatLngBounds.Builder bounds = new LatLngBounds.Builder();
         mMap.clear();
         LatLng myPoint = new LatLng(mCurrentLocation.getLatitude(), mCurrentLocation.getLongitude());
-        for (Result result : maps.results) {
-            LatLng latLng = new LatLng(result.geometry.location.lat, result.geometry.location.lng);
+        for (MapLocation map : maps) {
+            LatLng latLng = new LatLng(map.getLatitude(), map.getLongitude());
             MarkerOptions markerOptions = new MarkerOptions()
-                    .position(latLng).title(result.name)
+                    .position(latLng).title(map.getName())
                     .icon(BitmapDescriptorFactory.fromResource(R.mipmap.ic_pizza));
             bounds.include(latLng);
             mMap.addMarker(markerOptions);
         }
         MarkerOptions myMarker = new MarkerOptions().position(myPoint);
         mMap.addMarker(myMarker);
-        LatLngBounds bound = bounds.include(myPoint).build();
+        if (myPoint != null)
+            bounds.include(myPoint);
+        LatLngBounds bound = bounds.build();
         int margin = getResources().getDimensionPixelSize(R.dimen.map_insert_margin);
         CameraUpdate update = CameraUpdateFactory.newLatLngBounds(bound, margin);
         mMap.animateCamera(update);

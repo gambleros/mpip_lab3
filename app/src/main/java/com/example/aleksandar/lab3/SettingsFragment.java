@@ -36,6 +36,7 @@ public class SettingsFragment extends Fragment {
                     mapLab.setActiveFragment(MAPS_FRAGMENT);
                 }
                 else mapLab.setActiveFragment(LIST_FRAGMENT);
+                SettingPreference.setMapOn(getActivity(),b);
 //                Log.i("Log",mapLab.getActiveFragment());
             }
         });
